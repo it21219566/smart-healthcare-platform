@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "http://localhost:3000"
+            allowedMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+            allowedHeaders: "*"
+            allowCredentials: true
+      routes:
+        - id: auth-service
+          uri: ${AUTH_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/auth/**
+
+        - id: patient-service
+          uri: ${PATIENT_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/patients/**
+          filters:
+            - AuthenticationFilter
+
+        - id: doctor-service
+          uri: ${DOCTOR_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/doctors/**
+          filters:
+            - AuthenticationFilter
+
+        - id: appointment-service
+          uri: ${APPOINTMENT_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/appointments/**
+          filters:
+            - AuthenticationFilter
+
+jwt:
+  secret: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437

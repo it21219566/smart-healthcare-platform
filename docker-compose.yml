@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: healthcare-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    networks:
+      - healthcare-net
+
+  activemq:
+    image: apache/activemq-classic:5.18.3
+    container_name: healthcare-activemq
+    restart: always
+    ports:
+      - "61616:61616" # Broker TCP port for Spring Boot
+      - "8161:8161"   # Web Console (login: admin / admin)
+    networks:
+      - healthcare-net
+
+volumes:
+  postgres_data:
+
+networks:
+  healthcare-net:
+    driver: bridge

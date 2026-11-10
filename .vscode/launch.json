@@ -1,0 +1,73 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "1. API Gateway (8080)",
+      "request": "launch",
+      "mainClass": "com.healthcare.gateway.ApiGatewayApplication",
+      "projectName": "api-gateway",
+      "vmArgs": "-Xmx256m -Xms128m"
+    },
+    {
+      "type": "java",
+      "name": "2. Auth Service (8081)",
+      "request": "launch",
+      "mainClass": "com.healthcare.auth.AuthServiceApplication",
+      "projectName": "auth-service",
+      "vmArgs": "-Xmx256m -Xms128m"
+    },
+    {
+      "type": "java",
+      "name": "3. Patient Service (8082)",
+      "request": "launch",
+      "mainClass": "com.healthcare.patient.PatientServiceApplication",
+      "projectName": "patient-service",
+      "vmArgs": "-Xmx256m -Xms128m"
+    },
+    {
+      "type": "java",
+      "name": "4. Doctor Service (8083)",
+      "request": "launch",
+      "mainClass": "com.healthcare.doctor.DoctorServiceApplication",
+      "projectName": "doctor-service",
+      "vmArgs": "-Xmx256m -Xms128m"
+    },
+    {
+      "type": "java",
+      "name": "5. Appointment Service (8084)",
+      "request": "launch",
+      "mainClass": "com.healthcare.appointment.AppointmentServiceApplication",
+      "projectName": "appointment-service",
+      "vmArgs": "-Xmx256m -Xms128m"
+    },
+    {
+      "type": "java",
+      "name": "6. Notification Service (8085)",
+      "request": "launch",
+      "mainClass": "com.healthcare.notification.NotificationServiceApplication",
+      "projectName": "notification-service",
+      "vmArgs": "-Xmx256m -Xms128m"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Run Day 1 Stack (Gateway + Auth)",
+      "configurations": [
+        "1. API Gateway (8080)",
+        "2. Auth Service (8081)"
+      ]
+    },
+    {
+      "name": "Run Full Backend (All 6 Services)",
+      "configurations": [
+        "1. API Gateway (8080)",
+        "2. Auth Service (8081)",
+        "3. Patient Service (8082)",
+        "4. Doctor Service (8083)",
+        "5. Appointment Service (8084)",
+        "6. Notification Service (8085)"
+      ]
+    }
+  ]
+}

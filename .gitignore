@@ -1,0 +1,27 @@
+@"
+# Maven & Java build artifacts
+**/target/
+**/*.jar
+**/*.war
+**/*.class
+.mvn/
+
+# IDE & OS files
+.idea/
+**/.classpath
+**/.project
+**/.settings/
+**/.factorypath
+.DS_Store
+Thumbs.db
+
+# Node / Next.js (for Day 4)
+**/node_modules/
+**/.next/
+**/out/
+
+# Local uploaded files & env secrets
+**/uploads/
+.env
+.env.local
+"@ | Out-File -FilePath .gitignore -Encoding utf8
