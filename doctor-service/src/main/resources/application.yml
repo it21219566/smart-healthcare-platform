@@ -1,0 +1,15 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: doctor-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/doctor_db
+    username: postgres
+    password: password123
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
