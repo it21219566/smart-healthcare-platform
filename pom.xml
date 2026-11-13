@@ -13,6 +13,6 @@
         <module>patient-service</module>
         <module>doctor-service</module>
         <module>appointment-service</module>
-        <!-- <module>notification-service</module> -->
+        <module>notification-service</module>
     </modules>
 </project>
