@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api";
-import { Stethoscope, ShieldCheck, UserPlus, LogIn, Activity } from "lucide-react";
+import { Stethoscope, UserPlus, LogIn } from "lucide-react";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -15,7 +15,6 @@ export default function AuthPage() {
     fullName: "",
     email: "",
     password: "",
-    role: "PATIENT",
   });
 
   const handleSubmit = async (e) => {
@@ -27,7 +26,7 @@ export default function AuthPage() {
       const endpoint = isLogin ? "/api/auth/login" : "/api/auth/register";
       const payload = isLogin
         ? { email: form.email, password: form.password }
-        : form;
+        : { ...form, role: "PATIENT" };
 
       const data = await apiRequest(endpoint, {
         method: "POST",
@@ -47,7 +46,6 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-[#0f172a] text-slate-100 flex flex-col justify-center items-center p-4">
       <div className="max-w-md w-full bg-[#1e2a5e]/80 backdrop-blur-md border border-slate-700/70 rounded-2xl shadow-2xl p-8">
-        {/* Brand Header */}
         <div className="flex items-center justify-center gap-3 mb-6">
           <div className="p-3 rounded-xl bg-[#fed352] text-[#1e2a5e]">
             <Stethoscope className="w-7 h-7" />
@@ -62,7 +60,6 @@ export default function AuthPage() {
           </div>
         </div>
 
-        {/* Toggle Tabs */}
         <div className="grid grid-cols-2 gap-2 p-1 bg-slate-900/70 rounded-xl mb-6">
           <button
             type="button"
@@ -84,7 +81,7 @@ export default function AuthPage() {
                 : "text-slate-300 hover:text-white"
             }`}
           >
-            Register
+            Patient Sign Up
           </button>
         </div>
 
@@ -98,12 +95,12 @@ export default function AuthPage() {
           {!isLogin && (
             <div>
               <label className="block text-xs font-medium text-slate-300 mb-1">
-                Full Name
+                Patient Full Name
               </label>
               <input
                 type="text"
                 required
-                placeholder="Nimal Silva / Dr. Kasun Perera"
+                placeholder="Nimal Silva"
                 value={form.fullName}
                 onChange={(e) => setForm({ ...form, fullName: e.target.value })}
                 className="w-full px-3.5 py-2.5 rounded-lg bg-slate-900/90 border border-slate-700 text-white text-sm focus:outline-none focus:border-[#fed352]"
@@ -132,7 +129,7 @@ export default function AuthPage() {
             <input
               type="password"
               required
-              placeholder="••••••••"
+              placeholder={isLogin ? "••••••••" : "Min 8 chars, Upper, Lower, Digit & Symbol"}
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               className="w-full px-3.5 py-2.5 rounded-lg bg-slate-900/90 border border-slate-700 text-white text-sm focus:outline-none focus:border-[#fed352]"
@@ -140,20 +137,9 @@ export default function AuthPage() {
           </div>
 
           {!isLogin && (
-            <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">
-                Account Role
-              </label>
-              <select
-                value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-lg bg-slate-900/90 border border-slate-700 text-white text-sm focus:outline-none focus:border-[#fed352]"
-              >
-                <option value="PATIENT">Patient (Book & Consult)</option>
-                <option value="DOCTOR">Doctor (Manage Schedule & Prescribe)</option>
-                <option value="ADMIN">Platform Admin (Verify Doctors)</option>
-              </select>
-            </div>
+            <p className="text-[11px] text-slate-300 bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60">
+              Public registration is strictly for <strong>Patients</strong>. Doctors are provisioned by the Platform Administrator.
+            </p>
           )}
 
           <button
@@ -162,7 +148,7 @@ export default function AuthPage() {
             className="w-full py-3 rounded-lg bg-[#fed352] hover:bg-yellow-400 text-[#1e2a5e] font-bold text-sm flex items-center justify-center gap-2 transition shadow-lg"
           >
             {isLogin ? <LogIn className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-            {loading ? "Processing..." : isLogin ? "Sign In to Portal" : "Create Account"}
+            {loading ? "Processing..." : isLogin ? "Sign In to Portal" : "Register as Patient"}
           </button>
         </form>
       </div>

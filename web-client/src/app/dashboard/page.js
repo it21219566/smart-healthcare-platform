@@ -4,14 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiRequest, GATEWAY_URL } from "@/lib/api";
 import {
-  Stethoscope, LogOut, Search, Calendar, Upload, FileText,
-  Video, CheckCircle, XCircle, Clock, PlusCircle, ShieldCheck, Pill, User
+  Stethoscope, LogOut, Search, Calendar, Upload,
+  Video, CheckCircle, Clock, PlusCircle, ShieldCheck, Pill, User
 } from "lucide-react";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [statusMsg, setStatusMsg] = useState("");
+  const [pwdForm, setPwdForm] = useState({ currentPassword: "", newPassword: "" });
+  const [pwdLoading, setPwdLoading] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("user");
@@ -27,11 +29,30 @@ export default function DashboardPage() {
     router.push("/");
   };
 
+  const handlePasswordRotation = async (e) => {
+    e.preventDefault();
+    setPwdLoading(true);
+    try {
+      const updatedAuth = await apiRequest("/api/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify(pwdForm),
+      });
+      localStorage.setItem("token", updatedAuth.token);
+      localStorage.setItem("user", JSON.stringify(updatedAuth));
+      setUser(updatedAuth);
+      setPwdForm({ currentPassword: "", newPassword: "" });
+      setStatusMsg("Password updated! Full account access unlocked.");
+    } catch (err) {
+      setStatusMsg("Password change failed: " + err.message);
+    } finally {
+      setPwdLoading(false);
+    }
+  };
+
   if (!user) return null;
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-slate-100">
-      {/* Top Navigation Bar */}
       <header className="bg-[#1e2a5e] border-b border-slate-700/80 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-lg bg-[#fed352] text-[#1e2a5e]">
@@ -54,7 +75,6 @@ export default function DashboardPage() {
         </button>
       </header>
 
-      {/* Flash Message Banner */}
       {statusMsg && (
         <div className="max-w-7xl mx-auto mt-4 px-6">
           <div className="p-3 rounded-lg bg-[#1e2a5e] border border-[#fed352] text-[#fed352] text-sm flex justify-between items-center">
@@ -64,18 +84,53 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Role-Specific Workspace */}
-      <main className="max-w-7xl mx-auto p-6">
-        {user.role === "PATIENT" && <PatientWorkspace user={user} notify={setStatusMsg} />}
-        {user.role === "DOCTOR" && <DoctorWorkspace user={user} notify={setStatusMsg} />}
-        {user.role === "ADMIN" && <AdminWorkspace user={user} notify={setStatusMsg} />}
-      </main>
+      {user.passwordChangeRequired ? (
+        <main className="max-w-md mx-auto mt-16 p-6 bg-slate-900 border border-[#fed352]/60 rounded-2xl shadow-2xl">
+          <div className="flex items-center gap-2 text-[#fed352] font-bold text-base mb-2">
+            <ShieldCheck className="w-5 h-5" /> Security Policy: Rotate Temporary Password
+          </div>
+          <p className="text-xs text-slate-300 mb-4">
+            Your account was provisioned with a one-time password. You must set a new strong password (min 8 chars, uppercase, lowercase, digit, special character) before accessing the platform.
+          </p>
+          <form onSubmit={handlePasswordRotation} className="space-y-3 text-xs">
+            <input
+              type="password"
+              required
+              placeholder="Current One-Time Password"
+              value={pwdForm.currentPassword}
+              onChange={(e) => setPwdForm({ ...pwdForm, currentPassword: e.target.value })}
+              className="w-full p-2.5 rounded bg-slate-800 border border-slate-700 text-white"
+            />
+            <input
+              type="password"
+              required
+              placeholder="New Strong Password (e.g. Health@2026!)"
+              value={pwdForm.newPassword}
+              onChange={(e) => setPwdForm({ ...pwdForm, newPassword: e.target.value })}
+              className="w-full p-2.5 rounded bg-slate-800 border border-slate-700 text-white"
+            />
+            <button
+              type="submit"
+              disabled={pwdLoading}
+              className="w-full py-2.5 rounded-lg bg-[#fed352] text-[#1e2a5e] font-bold"
+            >
+              {pwdLoading ? "Updating..." : "Update Password & Unlock Account"}
+            </button>
+          </form>
+        </main>
+      ) : (
+        <main className="max-w-7xl mx-auto p-6">
+          {user.role === "PATIENT" && <PatientWorkspace user={user} notify={setStatusMsg} />}
+          {user.role === "DOCTOR" && <DoctorWorkspace user={user} notify={setStatusMsg} />}
+          {user.role === "ADMIN" && <AdminWorkspace user={user} notify={setStatusMsg} />}
+        </main>
+      )}
     </div>
   );
 }
 
 /* ============================================================================
-   1. PATIENT WORKSPACE (Profile, Doctor Search, Slot Booking, Reports, Video)
+   1. PATIENT WORKSPACE
    ============================================================================ */
 function PatientWorkspace({ user, notify }) {
   const [profile, setProfile] = useState({
@@ -110,9 +165,7 @@ function PatientWorkspace({ user, notify }) {
       setPatientRecord(p);
       setProfile(p);
       loadPatientExtras(p.id);
-    } catch (_) {
-      // Profile not created yet
-    }
+    } catch (_) {}
   };
 
   const loadPatientExtras = async (patientId) => {
@@ -221,7 +274,6 @@ function PatientWorkspace({ user, notify }) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Left Column: Patient Profile & Medical Report Upload */}
       <div className="space-y-6">
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
           <h2 className="text-base font-bold text-[#fed352] flex items-center gap-2 mb-4">
@@ -283,7 +335,6 @@ function PatientWorkspace({ user, notify }) {
           </form>
         </div>
 
-        {/* Upload Medical Reports */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
           <h2 className="text-base font-bold text-[#fed352] flex items-center gap-2 mb-4">
             <Upload className="w-4 h-4" /> Upload Medical Reports
@@ -330,9 +381,7 @@ function PatientWorkspace({ user, notify }) {
         </div>
       </div>
 
-      {/* Middle & Right Columns: Search Doctors, Book Slots & View Appointments */}
       <div className="lg:col-span-2 space-y-6">
-        {/* Search Verified Doctors */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <h2 className="text-base font-bold text-[#fed352] flex items-center gap-2">
@@ -357,7 +406,7 @@ function PatientWorkspace({ user, notify }) {
 
           {doctors.length === 0 ? (
             <p className="text-xs text-slate-400">
-              No verified doctors found. (Create a Doctor profile and approve it via an ADMIN account).
+              No verified doctors found yet.
             </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -385,7 +434,6 @@ function PatientWorkspace({ user, notify }) {
             </div>
           )}
 
-          {/* Available Slots Modal/Drawer */}
           {selectedDoctor && (
             <div className="mt-5 p-4 rounded-xl bg-[#1e2a5e]/40 border border-[#fed352]/40">
               <h4 className="text-sm font-bold text-white mb-2">
@@ -418,7 +466,6 @@ function PatientWorkspace({ user, notify }) {
           )}
         </div>
 
-        {/* My Appointments & Telemedicine Video Links */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
           <h2 className="text-base font-bold text-[#fed352] flex items-center gap-2 mb-4">
             <Calendar className="w-4 h-4" /> 3. My Appointments & Telemedicine Room
@@ -459,7 +506,6 @@ function PatientWorkspace({ user, notify }) {
           )}
         </div>
 
-        {/* Digital Prescriptions */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
           <h2 className="text-base font-bold text-[#fed352] flex items-center gap-2 mb-4">
             <Pill className="w-4 h-4" /> 4. Digital Prescriptions
@@ -484,7 +530,7 @@ function PatientWorkspace({ user, notify }) {
 }
 
 /* ============================================================================
-   2. DOCTOR WORKSPACE (Profile, Add Slots, Manage Appointments, Prescribe)
+   2. DOCTOR WORKSPACE
    ============================================================================ */
 function DoctorWorkspace({ user, notify }) {
   const [profile, setProfile] = useState({
@@ -540,7 +586,7 @@ function DoctorWorkspace({ user, notify }) {
         body: JSON.stringify(profile),
       });
       setDoctorRecord(saved);
-      notify(`Doctor profile saved (ID #${saved.id}). Verification status: ${saved.verified ? "VERIFIED" : "Pending Admin Approval"}`);
+      notify(`Doctor profile updated (ID #${saved.id}).`);
       loadDoctorData();
     } catch (err) {
       notify("Error saving doctor profile: " + err.message);
@@ -550,7 +596,7 @@ function DoctorWorkspace({ user, notify }) {
   const addAvailabilitySlot = async (e) => {
     e.preventDefault();
     if (!doctorRecord) {
-      notify("Save your Doctor Profile first!");
+      notify("Doctor profile not found!");
       return;
     }
     try {
@@ -597,7 +643,6 @@ function DoctorWorkspace({ user, notify }) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Left Column: Doctor Profile & Add Slot */}
       <div className="space-y-6">
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
           <h2 className="text-base font-bold text-[#fed352] mb-3">1. Doctor Profile</h2>
@@ -661,12 +706,11 @@ function DoctorWorkspace({ user, notify }) {
               type="submit"
               className="w-full py-2.5 rounded-lg bg-[#fed352] text-[#1e2a5e] font-bold"
             >
-              Save Doctor Profile
+              Update Doctor Profile
             </button>
           </form>
         </div>
 
-        {/* Add Availability Slot */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
           <h2 className="text-base font-bold text-[#fed352] mb-3">2. Publish Availability Slot</h2>
           <form onSubmit={addAvailabilitySlot} className="space-y-3 text-xs">
@@ -703,7 +747,6 @@ function DoctorWorkspace({ user, notify }) {
         </div>
       </div>
 
-      {/* Right 2 Columns: Doctor Appointments & Issue Prescription */}
       <div className="lg:col-span-2 space-y-6">
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
           <h2 className="text-base font-bold text-[#fed352] mb-4">
@@ -770,7 +813,6 @@ function DoctorWorkspace({ user, notify }) {
           )}
         </div>
 
-        {/* Issue Digital Prescription */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
           <h2 className="text-base font-bold text-[#fed352] mb-4">
             4. Issue Digital Prescription
@@ -831,10 +873,20 @@ function DoctorWorkspace({ user, notify }) {
 }
 
 /* ============================================================================
-   3. ADMIN WORKSPACE (Verify Doctor Registrations & Platform Oversight)
+   3. ADMIN WORKSPACE (Onboard New Doctors + Create Profile & Manage Platform)
    ============================================================================ */
 function AdminWorkspace({ notify }) {
   const [doctors, setDoctors] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [docForm, setDocForm] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+    specialty: "Cardiologist",
+    qualification: "MBBS, MD",
+    slmcRegNumber: "",
+    consultationFee: 2500,
+  });
 
   useEffect(() => {
     loadDoctors();
@@ -849,10 +901,54 @@ function AdminWorkspace({ notify }) {
     }
   };
 
+  const handleAddDoctor = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const authCreated = await apiRequest("/api/auth/admin/create-doctor", {
+        method: "POST",
+        body: JSON.stringify({
+          fullName: docForm.fullName,
+          email: docForm.email,
+          password: docForm.password,
+        }),
+      });
+
+      await apiRequest("/api/doctors/admin/create", {
+        method: "POST",
+        body: JSON.stringify({
+          userId: authCreated.userId,
+          fullName: docForm.fullName,
+          email: docForm.email,
+          specialty: docForm.specialty,
+          qualification: docForm.qualification,
+          slmcRegNumber: docForm.slmcRegNumber,
+          consultationFee: Number(docForm.consultationFee),
+        }),
+      });
+
+      notify(`Doctor ${docForm.fullName} onboarded! Account & Profile created (must rotate password on first login).`);
+      setDocForm({
+        fullName: "",
+        email: "",
+        password: "",
+        specialty: "Cardiologist",
+        qualification: "MBBS, MD",
+        slmcRegNumber: "",
+        consultationFee: 2500,
+      });
+      loadDoctors();
+    } catch (err) {
+      notify("Failed to onboard doctor: " + err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const approveDoctor = async (docId) => {
     try {
       await apiRequest(`/api/doctors/${docId}/verify`, { method: "PUT" });
-      notify(`Doctor #${docId} verified! They now appear in public patient searches.`);
+      notify(`Doctor #${docId} verified!`);
       loadDoctors();
     } catch (err) {
       notify("Verification failed: " + err.message);
@@ -860,40 +956,143 @@ function AdminWorkspace({ notify }) {
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-      <h2 className="text-lg font-bold text-[#fed352] flex items-center gap-2 mb-4">
-        <ShieldCheck className="w-5 h-5" /> Admin Governance: Verify Doctor Registrations
-      </h2>
-      {doctors.length === 0 ? (
-        <p className="text-xs text-slate-400">No doctors registered in doctor-service yet.</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {doctors.map((doc) => (
-            <div
-              key={doc.id}
-              className="p-4 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-between"
-            >
-              <div className="text-xs space-y-1">
-                <p className="font-bold text-sm text-white">{doc.fullName}</p>
-                <p className="text-[#fed352]">{doc.specialty} • {doc.qualification}</p>
-                <p className="text-slate-400">SLMC: {doc.slmcRegNumber} • Fee: LKR {doc.consultationFee}</p>
-              </div>
-              {doc.verified ? (
-                <span className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 text-xs font-bold flex items-center gap-1">
-                  <CheckCircle className="w-4 h-4" /> Verified
-                </span>
-              ) : (
-                <button
-                  onClick={() => approveDoctor(doc.id)}
-                  className="px-4 py-2 rounded-lg bg-[#fed352] hover:bg-yellow-400 text-[#1e2a5e] text-xs font-bold"
-                >
-                  Approve & Verify
-                </button>
-              )}
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <h2 className="text-base font-bold text-[#fed352] flex items-center gap-2 mb-4">
+          <PlusCircle className="w-4 h-4" /> Onboard New Doctor
+        </h2>
+        <form onSubmit={handleAddDoctor} className="space-y-3 text-xs">
+          <div>
+            <label className="block text-slate-400 mb-1">Doctor Full Name</label>
+            <input
+              type="text"
+              required
+              placeholder="Dr. Kasun Perera"
+              value={docForm.fullName}
+              onChange={(e) => setDocForm({ ...docForm, fullName: e.target.value })}
+              className="w-full p-2.5 rounded bg-slate-800 border border-slate-700 text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-slate-400 mb-1">Login Email</label>
+            <input
+              type="email"
+              required
+              placeholder="kasun@hospital.lk"
+              value={docForm.email}
+              onChange={(e) => setDocForm({ ...docForm, email: e.target.value })}
+              className="w-full p-2.5 rounded bg-slate-800 border border-slate-700 text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-slate-400 mb-1">One-Time Temporary Password (min 8 chars)</label>
+            <input
+              type="password"
+              required
+              placeholder="••••••••"
+              value={docForm.password}
+              onChange={(e) => setDocForm({ ...docForm, password: e.target.value })}
+              className="w-full p-2.5 rounded bg-slate-800 border border-slate-700 text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-slate-400 mb-1">Specialty</label>
+            <input
+              type="text"
+              required
+              placeholder="Cardiologist / Dermatologist / Pediatrician"
+              value={docForm.specialty}
+              onChange={(e) => setDocForm({ ...docForm, specialty: e.target.value })}
+              className="w-full p-2.5 rounded bg-slate-800 border border-slate-700 text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-slate-400 mb-1">Qualifications</label>
+            <input
+              type="text"
+              required
+              placeholder="MBBS, MD (Colombo)"
+              value={docForm.qualification}
+              onChange={(e) => setDocForm({ ...docForm, qualification: e.target.value })}
+              className="w-full p-2.5 rounded bg-slate-800 border border-slate-700 text-white"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-slate-400 mb-1">SLMC Reg No</label>
+              <input
+                type="text"
+                required
+                placeholder="SLMC-44210"
+                value={docForm.slmcRegNumber}
+                onChange={(e) => setDocForm({ ...docForm, slmcRegNumber: e.target.value })}
+                className="w-full p-2.5 rounded bg-slate-800 border border-slate-700 text-white"
+              />
             </div>
-          ))}
-        </div>
-      )}
+            <div>
+              <label className="block text-slate-400 mb-1">Fee (LKR)</label>
+              <input
+                type="number"
+                required
+                value={docForm.consultationFee}
+                onChange={(e) => setDocForm({ ...docForm, consultationFee: e.target.value })}
+                className="w-full p-2.5 rounded bg-slate-800 border border-slate-700 text-white"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full py-2.5 mt-2 rounded-lg bg-[#fed352] hover:bg-yellow-400 text-[#1e2a5e] font-bold transition"
+          >
+            {submitting ? "Creating Account & Profile..." : "+ Create Doctor & Profile"}
+          </button>
+        </form>
+      </div>
+
+      <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <h2 className="text-base font-bold text-[#fed352] flex items-center gap-2 mb-4">
+          <ShieldCheck className="w-5 h-5" /> Registered Doctors Directory ({doctors.length})
+        </h2>
+        {doctors.length === 0 ? (
+          <p className="text-xs text-slate-400">
+            No doctors added yet. Use the form on the left to onboard a doctor.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {doctors.map((doc) => (
+              <div
+                key={doc.id}
+                className="p-4 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-between"
+              >
+                <div className="text-xs space-y-1">
+                  <p className="font-bold text-sm text-white">{doc.fullName}</p>
+                  <p className="text-[#fed352] font-medium">
+                    {doc.specialty} • {doc.qualification}
+                  </p>
+                  <p className="text-slate-400">{doc.email}</p>
+                  <p className="text-slate-400">
+                    SLMC: {doc.slmcRegNumber} • Fee: LKR {doc.consultationFee}
+                  </p>
+                </div>
+                {doc.verified ? (
+                  <span className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 text-xs font-bold flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4" /> Active
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => approveDoctor(doc.id)}
+                    className="px-3 py-1.5 rounded-lg bg-[#fed352] text-[#1e2a5e] text-xs font-bold"
+                  >
+                    Verify
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

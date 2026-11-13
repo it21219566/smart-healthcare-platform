@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @RestController
@@ -24,7 +25,31 @@ public class DoctorController {
     private final AvailabilitySlotRepository slotRepository;
     private final PrescriptionRepository prescriptionRepository;
 
-    // 1. Doctor creates or updates their profile
+    // 1A. Admin-Only Endpoint: Create Verified Doctor Profile during onboarding
+    @PostMapping("/admin/create")
+    public ResponseEntity<?> adminCreateDoctorProfile(
+            @RequestHeader("X-User-Role") String role,
+            @RequestBody Doctor request) {
+
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", "Only ADMIN can create doctor profiles"));
+        }
+
+        Doctor doctor = doctorRepository.findByUserId(request.getUserId()).orElse(new Doctor());
+        doctor.setUserId(request.getUserId());
+        doctor.setFullName(request.getFullName());
+        doctor.setEmail(request.getEmail() != null ? request.getEmail().trim().toLowerCase(Locale.ROOT) : "");
+        doctor.setSpecialty(request.getSpecialty());
+        doctor.setQualification(request.getQualification());
+        doctor.setSlmcRegNumber(request.getSlmcRegNumber());
+        doctor.setConsultationFee(request.getConsultationFee());
+        doctor.setVerified(true);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(doctorRepository.save(doctor));
+    }
+
+    // 1B. Doctor updates their own profile
     @PostMapping("/profile")
     public ResponseEntity<Doctor> saveProfile(
             @RequestHeader("X-User-Id") Long userId,
@@ -33,7 +58,7 @@ public class DoctorController {
         Doctor doctor = doctorRepository.findByUserId(userId).orElse(new Doctor());
         doctor.setUserId(userId);
         doctor.setFullName(request.getFullName());
-        doctor.setEmail(request.getEmail());
+        doctor.setEmail(request.getEmail() != null ? request.getEmail().trim().toLowerCase(Locale.ROOT) : "");
         doctor.setSpecialty(request.getSpecialty());
         doctor.setQualification(request.getQualification());
         doctor.setSlmcRegNumber(request.getSlmcRegNumber());
@@ -42,7 +67,7 @@ public class DoctorController {
         return ResponseEntity.ok(doctorRepository.save(doctor));
     }
 
-    // 2. Public Search: Browse verified doctors by specialty (or all if specialty is omitted)
+    // 2. Public Search: Browse verified doctors by specialty
     @GetMapping("/search")
     public ResponseEntity<List<Doctor>> searchDoctors(
             @RequestParam(required = false) String specialty) {
@@ -52,12 +77,13 @@ public class DoctorController {
         return ResponseEntity.ok(doctorRepository.findBySpecialtyContainingIgnoreCaseAndVerifiedTrue(specialty));
     }
 
-    // 3. Admin Endpoint: List all doctors (including unverified) & verify a doctor
+    // 3. Get all doctors
     @GetMapping("/all")
     public ResponseEntity<List<Doctor>> getAllDoctors() {
         return ResponseEntity.ok(doctorRepository.findAll());
     }
 
+    // 4. Admin Endpoint: Verify a doctor
     @PutMapping("/{doctorId}/verify")
     public ResponseEntity<?> verifyDoctor(
             @PathVariable Long doctorId,
@@ -74,7 +100,7 @@ public class DoctorController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // 4. Doctor adds availability time slot
+    // 5. Doctor adds availability time slot
     @PostMapping("/{doctorId}/slots")
     public ResponseEntity<AvailabilitySlot> addSlot(
             @PathVariable Long doctorId,
@@ -84,14 +110,14 @@ public class DoctorController {
         return ResponseEntity.status(HttpStatus.CREATED).body(slotRepository.save(slot));
     }
 
-    // 5. Get available (unbooked) slots for a doctor
+    // 6. Get available (unbooked) slots for a doctor
     @GetMapping("/{doctorId}/slots")
     public ResponseEntity<List<AvailabilitySlot>> getAvailableSlots(@PathVariable Long doctorId) {
         return ResponseEntity.ok(
                 slotRepository.findByDoctorIdAndIsBookedFalseOrderByAvailableDateAscStartTimeAsc(doctorId));
     }
 
-    // 6. Inter-Service Endpoint (Called by Appointment Service on Day 3 to lock/release a slot)
+    // 7. Inter-Service Endpoint (Called by Appointment Service to lock/release a slot)
     @PutMapping("/slots/{slotId}/book")
     public ResponseEntity<?> markSlotBooked(
             @PathVariable Long slotId,
@@ -108,14 +134,14 @@ public class DoctorController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // 7. Doctor issues digital prescription
+    // 8. Doctor issues digital prescription
     @PostMapping("/prescriptions")
     public ResponseEntity<Prescription> issuePrescription(@RequestBody Prescription prescription) {
         prescription.setIssuedAt(LocalDateTime.now());
         return ResponseEntity.status(HttpStatus.CREATED).body(prescriptionRepository.save(prescription));
     }
 
-    // 8. View prescriptions for a patient
+    // 9. View prescriptions for a patient
     @GetMapping("/prescriptions/patient/{patientId}")
     public ResponseEntity<List<Prescription>> getPatientPrescriptions(@PathVariable Long patientId) {
         return ResponseEntity.ok(prescriptionRepository.findByPatientIdOrderByIssuedAtDesc(patientId));

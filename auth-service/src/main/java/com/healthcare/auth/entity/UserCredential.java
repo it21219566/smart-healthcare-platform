@@ -2,9 +2,13 @@ package com.healthcare.auth.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.util.Locale;
 
 @Entity
-@Table(name = "users")
+@Table(
+    name = "users",
+    uniqueConstraints = @UniqueConstraint(name = "uk_users_email", columnNames = "email")
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -17,7 +21,7 @@ public class UserCredential {
     @Column(nullable = false)
     private String fullName;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false, unique = true)
     private String email;
 
     @Column(nullable = false)
@@ -26,4 +30,16 @@ public class UserCredential {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
+
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean passwordChangeRequired = false;
+
+    @PrePersist
+    @PreUpdate
+    public void normalizeEmail() {
+        if (this.email != null) {
+            this.email = this.email.trim().toLowerCase(Locale.ROOT);
+        }
+    }
 }

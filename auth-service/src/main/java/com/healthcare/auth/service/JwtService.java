@@ -16,31 +16,39 @@ import java.util.Map;
 @Service
 public class JwtService {
 
-    // Matches the jwt.secret property in auth-service/src/main/resources/application.yml
-    // and api-gateway/src/main/resources/application.yml
     @Value("${jwt.secret}")
     private String secret;
 
     /**
-     * Generates a 24-hour JWT containing the user's ID (as subject), email, and role.
+     * Standard token generation (defaults to passwordChangeRequired = false).
      */
     public String generateToken(Long userId, String email, String role) {
+        return generateToken(userId, email, role, false);
+    }
+
+    /**
+     * Generates a JWT. If passwordChangeRequired is true, issues a short-lived (15 min)
+     * restricted token with role = PASSWORD_CHANGE_REQUIRED so the API Gateway blocks
+     * all downstream calls except /api/auth/change-password.
+     */
+    public String generateToken(Long userId, String email, String role, boolean passwordChangeRequired) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("email", email);
-        claims.put("role", role);
+        claims.put("role", passwordChangeRequired ? "PASSWORD_CHANGE_REQUIRED" : role);
+
+        long expirationMs = passwordChangeRequired
+                ? 1000L * 60 * 15       // 15 minutes for temporary password rotation
+                : 1000L * 60 * 60 * 24; // 24 hours for standard sessions
 
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(String.valueOf(userId))
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24)) // 24 hours
+                .setExpiration(new Date(System.currentTimeMillis() + expirationMs))
                 .signWith(getSignKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    /**
-     * Validates and extracts all claims from a JWT token.
-     */
     public Claims extractAllClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getSignKey())

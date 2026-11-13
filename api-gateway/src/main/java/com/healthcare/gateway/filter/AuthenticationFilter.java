@@ -32,10 +32,12 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
+            String path = request.getURI().getPath();
 
-            // Public route: allow patients/guests to search doctors without token
-            if (request.getURI().getPath().startsWith("/api/doctors/search") &&
-                request.getMethod().name().equals("GET")) {
+            // Public routes: Login, Patient Registration, and Public Doctor Search
+            if (path.equals("/api/auth/login") ||
+                path.equals("/api/auth/register") ||
+                (path.startsWith("/api/doctors/search") && request.getMethod().name().equals("GET"))) {
                 return chain.filter(exchange);
             }
 
@@ -56,13 +58,21 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
                         .parseClaimsJws(token)
                         .getBody();
 
+                String role = claims.get("role", String.class);
+
+                // Block all downstream API calls if user has not rotated their temporary password
+                if ("PASSWORD_CHANGE_REQUIRED".equals(role) && !path.equals("/api/auth/change-password")) {
+                    return onError(exchange, HttpStatus.FORBIDDEN);
+                }
+
                 ServerHttpRequest modifiedRequest = exchange.getRequest().mutate()
                         .header("X-User-Id", claims.getSubject())
-                        .header("X-User-Role", claims.get("role", String.class))
+                        .header("X-User-Role", role)
                         .build();
 
                 return chain.filter(exchange.mutate().request(modifiedRequest).build());
             } catch (Exception e) {
+                System.out.println("JWT Validation Error: " + e.getMessage());
                 return onError(exchange, HttpStatus.UNAUTHORIZED);
             }
         };

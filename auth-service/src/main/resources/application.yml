@@ -15,4 +15,13 @@ spring:
     show-sql: true
 
 jwt:
-  secret: 5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437
+  secret: ${JWT_SECRET:5367566B59703373367639792F423F4528482B4D6251655468576D5A71347437}
+
+app:
+  security:
+    initial-admin:
+      # Opt-in provisioning: set INITIAL_ADMIN_ENABLED=false in production after initial bootstrap
+      enabled: ${INITIAL_ADMIN_ENABLED:true}
+      email: ${INITIAL_ADMIN_EMAIL:admin@smarthealth.lk}
+      # Never hardcode a fallback password here; if blank, AdminBootstrapService generates a CSPRNG password
+      password: ${INITIAL_ADMIN_PASSWORD:}

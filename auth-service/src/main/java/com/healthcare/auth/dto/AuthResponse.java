@@ -1,4 +1,3 @@
-// auth-service/src/main/java/com/healthcare/auth/dto/AuthResponse.java
 package com.healthcare.auth.dto;
 
 import lombok.AllArgsConstructor;
@@ -11,4 +10,5 @@ public class AuthResponse {
     private Long userId;
     private String fullName;
     private String role;
+    private boolean passwordChangeRequired;
 }
