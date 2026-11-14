@@ -19,7 +19,7 @@ Student Registration Number: IT21219566
 2. DEPLOYMENT OPTION A: DOCKER COMPOSE (RECOMMENDED FOR QUICK TESTING)
 --------------------------------------------------------------------------------
 Step 1: Clone the repository and navigate to the project root:
-        git clone https://github.com/kulanathathsara/smart-healthcare-platform.git
+        git clone https://github.com/IT21219566/smart-healthcare-platform.git
         cd smart-healthcare-platform
 
 Step 2: Build and start all 9 containers (Postgres, ActiveMQ, 6 Services, UI):
