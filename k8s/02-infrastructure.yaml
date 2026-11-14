@@ -1,0 +1,83 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: smart-healthcare
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: healthcare-secrets
+          volumeMounts:
+            - name: init-db
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: init-db
+          configMap:
+            name: healthcare-config
+            items:
+              - key: init-databases.sql
+                path: 01-create-databases.sql
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: smart-healthcare
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: activemq
+  namespace: smart-healthcare
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: activemq
+  template:
+    metadata:
+      labels:
+        app: activemq
+    spec:
+      containers:
+        - name: activemq
+          image: apache/activemq-classic:5.18.3
+          ports:
+            - containerPort: 61616
+            - containerPort: 8161
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: activemq
+  namespace: smart-healthcare
+spec:
+  selector:
+    app: activemq
+  ports:
+    - name: broker
+      port: 61616
+      targetPort: 61616
+    - name: console
+      port: 8161
+      targetPort: 8161

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
@@ -22,13 +20,120 @@ services:
     container_name: healthcare-activemq
     restart: always
     ports:
-      - "61616:61616" # Broker TCP port for Spring Boot
-      - "8161:8161"   # Web Console (login: admin / admin)
+      - "61616:61616"
+      - "8161:8161"
+    networks:
+      - healthcare-net
+
+  auth-service:
+    build: ./auth-service
+    image: smarthealth/auth-service:1.0
+    container_name: auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
+      INITIAL_ADMIN_ENABLED: "true"
+      INITIAL_ADMIN_EMAIL: "admin@smarthealth.lk"
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
+    depends_on:
+      - postgres
+    networks:
+      - healthcare-net
+
+  patient-service:
+    build: ./patient-service
+    image: smarthealth/patient-service:1.0
+    container_name: patient-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/patient_db
+    volumes:
+      - patient_uploads:/app/uploads/reports
+    depends_on:
+      - postgres
+    networks:
+      - healthcare-net
+
+  doctor-service:
+    build: ./doctor-service
+    image: smarthealth/doctor-service:1.0
+    container_name: doctor-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/doctor_db
+    depends_on:
+      - postgres
+    networks:
+      - healthcare-net
+
+  appointment-service:
+    build: ./appointment-service
+    image: smarthealth/appointment-service:1.0
+    container_name: appointment-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/appointment_db
+      SPRING_ACTIVEMQ_BROKER_URL: tcp://activemq:61616
+      DOCTOR_SERVICE_URL: http://doctor-service:8083
+    depends_on:
+      - postgres
+      - activemq
+      - doctor-service
+    networks:
+      - healthcare-net
+
+  notification-service:
+    build: ./notification-service
+    image: smarthealth/notification-service:1.0
+    container_name: notification-service
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_ACTIVEMQ_BROKER_URL: tcp://activemq:61616
+    depends_on:
+      - activemq
+    networks:
+      - healthcare-net
+
+  api-gateway:
+    build: ./api-gateway
+    image: smarthealth/api-gateway:1.0
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      AUTH_SERVICE_URL: http://auth-service:8081
+      PATIENT_SERVICE_URL: http://patient-service:8082
+      DOCTOR_SERVICE_URL: http://doctor-service:8083
+      APPOINTMENT_SERVICE_URL: http://appointment-service:8084
+    depends_on:
+      - auth-service
+      - patient-service
+      - doctor-service
+      - appointment-service
+    networks:
+      - healthcare-net
+
+  web-client:
+    build: ./web-client
+    image: smarthealth/web-client:1.0
+    container_name: web-client
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+    depends_on:
+      - api-gateway
     networks:
       - healthcare-net
 
 volumes:
   postgres_data:
+  patient_uploads:
 
 networks:
   healthcare-net:
