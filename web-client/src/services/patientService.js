@@ -8,10 +8,16 @@ export const patientService = {
 
   getReports: (patientId) => apiRequest(`/api/patients/${patientId}/reports`),
 
-  uploadReport: (patientId, file, description) => {
+  getReportsByAppointment: (appointmentId) =>
+    apiRequest(`/api/patients/reports/appointment/${appointmentId}`),
+
+  uploadReport: (patientId, file, description, appointmentId = null) => {
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("description", description || "Lab Report");
+    formData.append("description", description || "Pre-Consultation Report");
+    if (appointmentId) {
+      formData.append("appointmentId", String(appointmentId));
+    }
     return apiRequest(`/api/patients/${patientId}/reports`, {
       method: "POST",
       isMultipart: true,

@@ -18,15 +18,11 @@ public class MedicalReport {
     @Column(nullable = false)
     private Long patientId;
 
-    @Column(nullable = false)
+    private Long appointmentId;
+
     private String reportName;
-
-    @Column(nullable = false)
     private String fileType;
-
-    @Column(nullable = false)
     private String filePath;
-
     private String description;
     private LocalDateTime uploadedAt;
 }

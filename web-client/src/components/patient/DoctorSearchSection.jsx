@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, Clock } from "lucide-react";
+import { Search, Clock, Paperclip } from "lucide-react";
 import { doctorService } from "@/services/doctorService";
 import { appointmentService } from "@/services/appointmentService";
+import { patientService } from "@/services/patientService";
 
 export default function DoctorSearchSection({ patientRecord, onBooked, notify }) {
   const [specialtyQuery, setSpecialtyQuery] = useState("");
@@ -11,6 +12,9 @@ export default function DoctorSearchSection({ patientRecord, onBooked, notify })
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [slots, setSlots] = useState([]);
   const [reason, setReason] = useState("General Consultation & Checkup");
+  const [reportFiles, setReportFiles] = useState([]);
+  const [reportDesc, setReportDesc] = useState("");
+  const [booking, setBooking] = useState(false);
 
   useEffect(() => {
     handleSearch("");
@@ -27,6 +31,8 @@ export default function DoctorSearchSection({ patientRecord, onBooked, notify })
 
   const viewSlots = async (doc) => {
     setSelectedDoctor(doc);
+    setReportFiles([]);
+    setReportDesc("");
     try {
       const available = await doctorService.getAvailableSlots(doc.id);
       setSlots(available || []);
@@ -40,8 +46,11 @@ export default function DoctorSearchSection({ patientRecord, onBooked, notify })
       notify("Please click 'Save Patient Profile' first before booking!");
       return;
     }
+
+    setBooking(true);
     try {
-      await appointmentService.book({
+      // 1. Book appointment & lock slot synchronously
+      const booked = await appointmentService.book({
         patientId: patientRecord.id,
         patientName: patientRecord.fullName,
         patientEmail: patientRecord.email,
@@ -55,11 +64,33 @@ export default function DoctorSearchSection({ patientRecord, onBooked, notify })
         startTime: slot.startTime,
         reason,
       });
-      notify("Appointment booked! Confirmation Email & SMS triggered via ActiveMQ.");
+
+      // 2. Upload any attached medical reports linked to this appointment ID
+      if (reportFiles.length > 0 && booked?.id) {
+        await Promise.all(
+          reportFiles.map((file) =>
+            patientService.uploadReport(
+              patientRecord.id,
+              file,
+              reportDesc || "Pre-Consultation Report",
+              booked.id
+            )
+          )
+        );
+      }
+
+      const fileMsg =
+        reportFiles.length > 0 ? ` with ${reportFiles.length} medical report(s) attached` : "";
+      notify(`Appointment #${booked?.id} booked${fileMsg}! Confirmation sent via ActiveMQ.`);
+
+      setReportFiles([]);
+      setReportDesc("");
       viewSlots(selectedDoctor);
       onBooked();
     } catch (err) {
       notify("Booking failed: " + err.message);
+    } finally {
+      setBooking(false);
     }
   };
 
@@ -91,12 +122,19 @@ export default function DoctorSearchSection({ patientRecord, onBooked, notify })
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {doctors.map((doc) => (
-            <div key={doc.id} className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 flex flex-col justify-between">
+            <div
+              key={doc.id}
+              className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 flex flex-col justify-between"
+            >
               <div>
                 <h3 className="font-bold text-white text-sm">{doc.fullName}</h3>
                 <p className="text-xs text-[#fed352] font-medium">{doc.specialty}</p>
-                <p className="text-xs text-slate-400 mt-1">{doc.qualification} • SLMC: {doc.slmcRegNumber}</p>
-                <p className="text-xs text-emerald-400 font-semibold mt-1">Fee: LKR {doc.consultationFee}</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {doc.qualification} • SLMC: {doc.slmcRegNumber}
+                </p>
+                <p className="text-xs text-emerald-400 font-semibold mt-1">
+                  Fee: LKR {doc.consultationFee}
+                </p>
               </div>
               <button
                 onClick={() => viewSlots(doc)}
@@ -110,29 +148,60 @@ export default function DoctorSearchSection({ patientRecord, onBooked, notify })
       )}
 
       {selectedDoctor && (
-        <div className="mt-5 p-4 rounded-xl bg-[#1e2a5e]/40 border border-[#fed352]/40">
-          <h4 className="text-sm font-bold text-white mb-2">
-            Available Slots for {selectedDoctor.fullName}
+        <div className="mt-5 p-4 rounded-xl bg-[#1e2a5e]/40 border border-[#fed352]/40 space-y-3">
+          <h4 className="text-sm font-bold text-white">
+            Book Consultation with {selectedDoctor.fullName}
           </h4>
+
           <input
             type="text"
             placeholder="Reason for consultation..."
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="w-full p-2 mb-3 rounded bg-slate-900 border border-slate-700 text-xs"
+            className="w-full p-2.5 rounded bg-slate-900 border border-slate-700 text-xs"
           />
+
+          {/* Integrated Medical Report Attachment during Booking */}
+          <div className="p-3 rounded-lg bg-slate-900/80 border border-slate-700 space-y-2 text-xs">
+            <label className="font-semibold text-[#fed352] flex items-center gap-1.5">
+              <Paperclip className="w-3.5 h-3.5" /> Attach Medical Reports for Doctor (Optional)
+            </label>
+            <input
+              type="file"
+              multiple
+              onChange={(e) => setReportFiles(Array.from(e.target.files || []))}
+              className="w-full text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-[#1e2a5e] file:text-[#fed352]"
+            />
+            {reportFiles.length > 0 && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Report Description (e.g. ECG, Blood Test, X-Ray)"
+                  value={reportDesc}
+                  onChange={(e) => setReportDesc(e.target.value)}
+                  className="w-full p-2 rounded bg-slate-800 border border-slate-700 text-xs"
+                />
+                <p className="text-[11px] text-emerald-400">
+                  Selected ({reportFiles.length}): {reportFiles.map((f) => f.name).join(", ")}
+                </p>
+              </>
+            )}
+          </div>
+
           {slots.length === 0 ? (
             <p className="text-xs text-slate-300">No unbooked slots available for this doctor.</p>
           ) : (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 pt-1">
               {slots.map((slot) => (
                 <button
                   key={slot.id}
+                  disabled={booking}
                   onClick={() => handleBookSlot(slot)}
-                  className="px-3 py-2 rounded-lg bg-[#fed352] hover:bg-yellow-400 text-[#1e2a5e] text-xs font-bold flex items-center gap-1.5"
+                  className="px-3 py-2 rounded-lg bg-[#fed352] hover:bg-yellow-400 text-[#1e2a5e] text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <Clock className="w-3.5 h-3.5" />
-                  {slot.availableDate} ({slot.startTime}) — Book Now
+                  {slot.availableDate} ({String(slot.startTime).slice(0, 5)}–{String(slot.endTime).slice(0, 5)}) —{" "}
+                  {booking ? "Booking..." : "Book Now"}
                 </button>
               ))}
             </div>

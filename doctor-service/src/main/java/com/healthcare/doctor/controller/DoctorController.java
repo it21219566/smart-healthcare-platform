@@ -12,6 +12,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.time.Duration;
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -100,14 +103,43 @@ public class DoctorController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // 5. Doctor adds availability time slot
+    // 5. Doctor publishes an availability window (min 30 mins) -> auto-slices into 10-min slots
     @PostMapping("/{doctorId}/slots")
-    public ResponseEntity<AvailabilitySlot> addSlot(
+    public ResponseEntity<?> addSlot(
             @PathVariable Long doctorId,
-            @RequestBody AvailabilitySlot slot) {
-        slot.setDoctorId(doctorId);
-        slot.setBooked(false);
-        return ResponseEntity.status(HttpStatus.CREATED).body(slotRepository.save(slot));
+            @RequestBody AvailabilitySlot request) {
+
+        if (request.getAvailableDate() == null || request.getStartTime() == null || request.getEndTime() == null) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "Date, start time, and end time are required."));
+        }
+
+        LocalTime start = request.getStartTime();
+        LocalTime end = request.getEndTime();
+        long totalMinutes = Duration.between(start, end).toMinutes();
+
+        if (totalMinutes < 30) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "Minimum availability window is 30 minutes."));
+        }
+
+        List<AvailabilitySlot> generatedSlots = new ArrayList<>();
+        LocalTime cursor = start;
+
+        while (!cursor.plusMinutes(10).isAfter(end)) {
+            AvailabilitySlot slot = AvailabilitySlot.builder()
+                    .doctorId(doctorId)
+                    .availableDate(request.getAvailableDate())
+                    .startTime(cursor)
+                    .endTime(cursor.plusMinutes(10))
+                    .isBooked(false)
+                    .build();
+            generatedSlots.add(slot);
+            cursor = cursor.plusMinutes(10);
+        }
+
+        List<AvailabilitySlot> savedSlots = slotRepository.saveAll(generatedSlots);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedSlots);
     }
 
     // 6. Get available (unbooked) slots for a doctor

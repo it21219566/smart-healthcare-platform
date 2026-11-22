@@ -34,10 +34,11 @@ public class AuthenticationFilter extends AbstractGatewayFilterFactory<Authentic
             ServerHttpRequest request = exchange.getRequest();
             String path = request.getURI().getPath();
 
-            // Public routes: Login, Patient Registration, and Public Doctor Search
+            // Public routes: Login, Patient Registration, Public Doctor Search, and Report Downloads
             if (path.equals("/api/auth/login") ||
                 path.equals("/api/auth/register") ||
-                (path.startsWith("/api/doctors/search") && request.getMethod().name().equals("GET"))) {
+                (path.startsWith("/api/doctors/search") && request.getMethod().name().equals("GET")) ||
+                (path.startsWith("/api/patients/reports/") && path.endsWith("/download"))) {
                 return chain.filter(exchange);
             }
 

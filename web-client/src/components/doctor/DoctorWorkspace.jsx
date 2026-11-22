@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 import { doctorService } from "@/services/doctorService";
 import { appointmentService } from "@/services/appointmentService";
+import { patientService } from "@/services/patientService";
 import DoctorProfileAndSlots from "./DoctorProfileAndSlots";
 import DoctorAppointmentsAndRx from "./DoctorAppointmentsAndRx";
 
 export default function DoctorWorkspace({ user, notify }) {
   const [doctorRecord, setDoctorRecord] = useState(null);
+  const [slots, setSlots] = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [reportsByAppointment, setReportsByAppointment] = useState({});
 
   useEffect(() => {
     loadDoctorData();
@@ -20,8 +23,26 @@ export default function DoctorWorkspace({ user, notify }) {
       const mine = (allDocs || []).find((d) => d.userId === user.userId);
       if (mine) {
         setDoctorRecord(mine);
-        const myAppts = await appointmentService.getByDoctor(mine.id);
-        setAppointments(myAppts || []);
+        const [mySlots, myAppts] = await Promise.all([
+          doctorService.getAvailableSlots(mine.id),
+          appointmentService.getByDoctor(mine.id),
+        ]);
+        const apptList = myAppts || [];
+        setSlots(mySlots || []);
+        setAppointments(apptList);
+
+        // Fetch medical reports attached to each appointment
+        const reportEntries = await Promise.all(
+          apptList.map(async (apt) => {
+            try {
+              const reps = await patientService.getReportsByAppointment(apt.id);
+              return [apt.id, reps || []];
+            } catch (_) {
+              return [apt.id, []];
+            }
+          })
+        );
+        setReportsByAppointment(Object.fromEntries(reportEntries));
       }
     } catch (_) {}
   };
@@ -31,6 +52,7 @@ export default function DoctorWorkspace({ user, notify }) {
       <DoctorProfileAndSlots
         user={user}
         doctorRecord={doctorRecord}
+        slots={slots}
         onUpdated={loadDoctorData}
         notify={notify}
       />
@@ -38,6 +60,7 @@ export default function DoctorWorkspace({ user, notify }) {
         <DoctorAppointmentsAndRx
           doctorRecord={doctorRecord}
           appointments={appointments}
+          reportsByAppointment={reportsByAppointment}
           onStatusChanged={loadDoctorData}
           notify={notify}
         />
