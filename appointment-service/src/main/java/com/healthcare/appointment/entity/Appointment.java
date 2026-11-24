@@ -40,6 +40,9 @@ public class Appointment {
     @Column(columnDefinition = "TEXT")
     private String reason;
 
+    @Column(length = 2000)
+    private String symptoms;
+
     // Auto-generated Jitsi Meet room link for Telemedicine
     private String meetingLink;
 

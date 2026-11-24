@@ -157,7 +157,14 @@ export default function DoctorAppointmentsAndRx({
                     <p className="text-slate-200">
                       Date: {apt.appointmentDate} at {apt.startTime}
                     </p>
-                    <p className="text-slate-300/80">Reason: {apt.reason}</p>
+                    <p className="text-slate-300/80">
+                      <span className="font-semibold text-slate-200">Reason:</span> {apt.reason}
+                    </p>
+                    {apt.symptoms && (
+                      <p className="text-slate-300/90 bg-slate-900/60 border border-slate-700/70 rounded px-2.5 py-1.5 mt-1">
+                        <span className="font-semibold text-[#fed352]">Symptoms:</span> {apt.symptoms}
+                      </p>
+                    )}
                       {/* Attached Patient Medical Reports for this Appointment */}
                       <div className="pt-2">
                         {(reportsByAppointment[apt.id] || []).length > 0 ? (

@@ -12,6 +12,7 @@ export default function DoctorSearchSection({ patientRecord, onBooked, notify })
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [slots, setSlots] = useState([]);
   const [reason, setReason] = useState("General Consultation & Checkup");
+  const [symptoms, setSymptoms] = useState("");
   const [reportFiles, setReportFiles] = useState([]);
   const [reportDesc, setReportDesc] = useState("");
   const [booking, setBooking] = useState(false);
@@ -31,6 +32,7 @@ export default function DoctorSearchSection({ patientRecord, onBooked, notify })
 
   const viewSlots = async (doc) => {
     setSelectedDoctor(doc);
+    setSymptoms("");
     setReportFiles([]);
     setReportDesc("");
     try {
@@ -63,6 +65,7 @@ export default function DoctorSearchSection({ patientRecord, onBooked, notify })
         appointmentDate: slot.availableDate,
         startTime: slot.startTime,
         reason,
+        symptoms
       });
 
       // 2. Upload any attached medical reports linked to this appointment ID
@@ -84,6 +87,7 @@ export default function DoctorSearchSection({ patientRecord, onBooked, notify })
       notify(`Appointment #${booked?.id} booked${fileMsg}! Confirmation sent via ActiveMQ.`);
 
       setReportFiles([]);
+      setSymptoms("");
       setReportDesc("");
       viewSlots(selectedDoctor);
       onBooked();
@@ -153,13 +157,33 @@ export default function DoctorSearchSection({ patientRecord, onBooked, notify })
             Book Consultation with {selectedDoctor.fullName}
           </h4>
 
-          <input
-            type="text"
-            placeholder="Reason for consultation..."
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            className="w-full p-2.5 rounded bg-slate-900 border border-slate-700 text-xs"
-          />
+          <div className="space-y-2">
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                Brief Reason for Visit
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. General Consultation & Checkup"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className="w-full p-2.5 rounded bg-slate-900 border border-slate-700 text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                Describe Your Symptoms in Detail (Optional)
+              </label>
+              <textarea
+                rows={3}
+                placeholder="Explain your symptoms further (onset, duration, severity, triggers, or current medications)..."
+                value={symptoms}
+                onChange={(e) => setSymptoms(e.target.value)}
+                className="w-full p-2.5 rounded bg-slate-900 border border-slate-700 text-xs resize-y"
+              />
+            </div>
+          </div>
 
           {/* Integrated Medical Report Attachment during Booking */}
           <div className="p-3 rounded-lg bg-slate-900/80 border border-slate-700 space-y-2 text-xs">
