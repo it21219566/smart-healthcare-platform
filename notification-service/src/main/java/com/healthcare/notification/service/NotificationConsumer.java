@@ -4,10 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.healthcare.notification.dto.AppointmentEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jms.annotation.JmsListener;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -15,20 +12,21 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class NotificationConsumer {
 
-    private final ObjectMapper objectMapper;
-    private final JavaMailSender mailSender;
-
-    @Value("${spring.mail.username:}")
-    private String mailUsername;
+    private final EmailService emailService;
+    private final SmsService smsService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @JmsListener(destination = "appointment.notification.queue")
-    public void consumeAppointmentEvent(String jsonMessage) {
+    public void consumeAppointmentEvent(String messageJson) {
         try {
-            AppointmentEvent event = objectMapper.readValue(jsonMessage, AppointmentEvent.class);
+            AppointmentEvent event = objectMapper.readValue(messageJson, AppointmentEvent.class);
 
-            String subject = "Smart Healthcare - Appointment " + event.getEventType() + " (#" + event.getAppointmentId() + ")";
-            String body = String.format(
-                    "Dear %s,\n\nYour telemedicine appointment with %s on %s at %s is now %s.\nVideo Consultation Link: %s\n\nThank you,\nSmart Healthcare Platform",
+            String subject = String.format("Smart Healthcare - Appointment %s (#%d)",
+                    event.getEventType(), event.getAppointmentId());
+
+            String patientBody = String.format(
+                    "Dear %s,\n\nYour telemedicine appointment with %s on %s at %s is now %s.\n" +
+                    "Video Consultation Link: %s\n\nThank you,\nSmart Healthcare Platform",
                     event.getPatientName(),
                     event.getDoctorName(),
                     event.getAppointmentDate(),
@@ -37,42 +35,36 @@ public class NotificationConsumer {
                     event.getMeetingLink()
             );
 
-            // 1. Send or Simulate Email Notification
-            sendEmail(event.getPatientEmail(), subject, body);
-            if (event.getDoctorEmail() != null && !event.getDoctorEmail().isBlank()) {
-                sendEmail(event.getDoctorEmail(), subject,
-                        "Doctor Notification: Appointment #" + event.getAppointmentId() + " with " + event.getPatientName() + " is " + event.getEventType());
-            }
+            String doctorBody = String.format(
+                    "Doctor Notification: Appointment #%d with %s on %s at %s is %s.\nVideo Link: %s",
+                    event.getAppointmentId(),
+                    event.getPatientName(),
+                    event.getAppointmentDate(),
+                    event.getStartTime(),
+                    event.getEventType(),
+                    event.getMeetingLink()
+            );
 
-            // 2. Dispatch SMS Gateway Notification
-            sendSms(event.getPatientPhone(),
-                    "SmartHealth: Appt #" + event.getAppointmentId() + " with " + event.getDoctorName() +
-                    " on " + event.getAppointmentDate() + " at " + event.getStartTime() + " is " + event.getEventType());
+            String smsText = String.format(
+                    "SmartHealth: Appt #%d with %s on %s at %s is %s",
+                    event.getAppointmentId(),
+                    event.getDoctorName(),
+                    event.getAppointmentDate(),
+                    event.getStartTime(),
+                    event.getEventType()
+            );
+
+            // 1. Send Patient Email
+            emailService.sendEmail(event.getPatientEmail(), subject, patientBody);
+
+            // 2. Send Doctor Email
+            emailService.sendEmail(event.getDoctorEmail(), subject, doctorBody);
+
+            // 3. Send Patient SMS
+            smsService.sendSms(event.getPatientPhone(), smsText);
 
         } catch (Exception e) {
-            log.error("Error processing notification event from ActiveMQ: {}", e.getMessage());
+            log.error("Error processing ActiveMQ notification message: {}", e.getMessage());
         }
-    }
-
-    private void sendEmail(String to, String subject, String text) {
-        if (mailUsername != null && !mailUsername.isBlank()) {
-            try {
-                SimpleMailMessage message = new SimpleMailMessage();
-                message.setFrom(mailUsername);
-                message.setTo(to);
-                message.setSubject(subject);
-                message.setText(text);
-                mailSender.send(message);
-                log.info("[EMAIL SENT] To: {} | Subject: {}", to, subject);
-                return;
-            } catch (Exception e) {
-                log.warn("SMTP send failed ({}), falling back to console log.", e.getMessage());
-            }
-        }
-        log.info("\n================ EMAIL DISPATCHED ================\nTo: {}\nSubject: {}\n{}\n==================================================", to, subject, text);
-    }
-
-    private void sendSms(String phone, String message) {
-        log.info("\n================ SMS DISPATCHED ================\nTo: {}\nMessage: {}\n================================================", phone, message);
     }
 }

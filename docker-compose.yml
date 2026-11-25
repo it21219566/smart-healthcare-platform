@@ -93,7 +93,18 @@ services:
     ports:
       - "8085:8085"
     environment:
-      SPRING_ACTIVEMQ_BROKER_URL: tcp://activemq:61616
+      - SPRING_ACTIVEMQ_BROKER_URL=tcp://activemq:61616
+      - EMAIL_ENABLED=${EMAIL_ENABLED:-false}
+      - MAIL_USERNAME=${MAIL_USERNAME:-}
+      - MAIL_PASSWORD=${MAIL_PASSWORD:-}
+      - SMS_ENABLED=${SMS_ENABLED:-false}
+      - SMS_PROVIDER=${SMS_PROVIDER:-notifylk}
+      - NOTIFYLK_USER_ID=${NOTIFYLK_USER_ID:-}
+      - NOTIFYLK_API_KEY=${NOTIFYLK_API_KEY:-}
+      - NOTIFYLK_SENDER_ID=${NOTIFYLK_SENDER_ID:-NotifyDEMO}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
+      - TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER:-}
     depends_on:
       - activemq
     networks:
